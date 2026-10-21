@@ -1,0 +1,27 @@
+// use prisma-8
+
+model User {
+  id    Int    @id @default(autoincrement())
+  phone String @unique
+  name  String
+}
+
+model Driver {
+  id        Int     @id @default(autoincrement())
+  phone     String  @unique
+  name      String
+  carModel  String
+  carNumber String  @unique
+  isOnline  Boolean @default(false)
+  latitude  Float?
+  longitude Float?
+}
+
+model Ride {
+  id          Int     @id @default(autoincrement())
+  userId      Int
+  driverId    Int?
+  pickup      String
+  destination String
+  status      String  @default("new")
+}

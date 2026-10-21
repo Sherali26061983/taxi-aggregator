@@ -1,0 +1,66 @@
+// use prisma-8
+
+model User {
+  id    Int    @id @default(autoincrement())
+  phone String @unique
+  name  String
+}
+
+model Driver {
+  id        Int     @id @default(autoincrement())
+  phone     String  @unique
+  name      String
+  carModel  String
+  carNumber String  @unique
+  isOnline  Boolean @default(false)
+  latitude  Float?
+  longitude Float?
+}
+
+model Ride {
+  id          Int     @id @default(autoincrement())
+  userId      Int
+  driverId    Int?
+  pickup      String
+  destination String
+  status      String  @default("new")
+}
+
+model IntercityRoute {
+  id          Int     @id @default(autoincrement())
+  name        String
+  origin      String
+  destination String
+  isActive    Boolean @default(true)
+}
+
+model RouteStop {
+  id        Int     @id @default(autoincrement())
+  routeId   Int
+  name      String
+  sequence  Int
+  latitude  Float?
+  longitude Float?
+}
+
+model Departure {
+  id              Int      @id @default(autoincrement())
+  routeId         Int
+  driverId        Int
+  departureTime   DateTime
+  totalSeats      Int      @default(4)
+  availableSeats  Int      @default(4)
+  status          String   @default("gathering")
+}
+
+model SeatBooking {
+  id              Int      @id @default(autoincrement())
+  departureId     Int
+  userId          Int
+  pickupStopId    Int
+  dropoffStopId   Int
+  seats           Int      @default(1)
+  agreedFare      Int
+  status          String   @default("booked")
+  createdAt       DateTime @default(now())
+}

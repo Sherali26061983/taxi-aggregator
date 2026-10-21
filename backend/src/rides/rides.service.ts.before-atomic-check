@@ -1,0 +1,140 @@
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { PrismaService } from "../prisma/prisma.service.js";
+
+type ServiceType = "city" | "intercity";
+type DriverServiceType = "city" | "intercity" | "both";
+
+@Injectable()
+export class RidesService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async findAll(serviceType?: string) {
+    if (serviceType !== undefined) {
+      if (serviceType !== "city" && serviceType !== "intercity") {
+        throw new BadRequestException(
+          'Хизмат тури "city" ёки "intercity" бўлиши керак.',
+        );
+      }
+
+      return this.prisma.orm.public.Ride.where({
+        serviceType: serviceType as ServiceType,
+      }).all();
+    }
+
+    return this.prisma.orm.public.Ride.all();
+  }
+
+  async create(
+    userId: number,
+    pickup: string,
+    destination: string,
+    serviceType: string = "city",
+  ) {
+    if (serviceType !== "city" && serviceType !== "intercity") {
+      throw new BadRequestException(
+        'Хизмат тури "city" ёки "intercity" бўлиши керак.',
+      );
+    }
+
+    if (
+      !Number.isInteger(userId) ||
+      userId <= 0 ||
+      !pickup?.trim() ||
+      !destination?.trim()
+    ) {
+      throw new BadRequestException(
+        "Фойдаланувчи ID рақами ва олиш ҳамда бориш манзиллари тўғри киритилиши керак.",
+      );
+    }
+
+    return this.prisma.orm.public.Ride.create({
+      userId,
+      pickup: pickup.trim(),
+      destination: destination.trim(),
+      serviceType: serviceType as ServiceType,
+    });
+  }
+
+  async completeRide(rideId: number) {
+    if (!Number.isInteger(rideId) || rideId <= 0) {
+      throw new BadRequestException("Буюртма ID рақами нотўғри.");
+    }
+
+    const rides = await this.prisma.orm.public.Ride
+      .where({ id: rideId })
+      .all();
+
+    if (rides.length === 0) {
+      throw new NotFoundException("Буюртма топилмади.");
+    }
+
+    if (rides[0].status !== "accepted") {
+      throw new BadRequestException(
+        "Фақат қабул қилинган буюртмани якунлаш мумкин.",
+      );
+    }
+
+    return this.prisma.orm.public.Ride
+      .where({ id: rideId })
+      .update({ status: "completed" });
+  }
+
+  async assignDriver(rideId: number, driverId: number) {
+    if (
+      !Number.isInteger(rideId) ||
+      rideId <= 0 ||
+      !Number.isInteger(driverId) ||
+      driverId <= 0
+    ) {
+      throw new BadRequestException("Буюртма ёки ҳайдовчи ID рақами нотўғри.");
+    }
+
+    const rides = await this.prisma.orm.public.Ride
+      .where({ id: rideId })
+      .all();
+
+    if (rides.length === 0) {
+      throw new NotFoundException("Буюртма топилмади.");
+    }
+
+    const ride = rides[0];
+
+    if (ride.status !== "new" || ride.driverId !== null) {
+      throw new BadRequestException(
+        "Бу буюртма аллақачон қабул қилинган ёки фаол эмас.",
+      );
+    }
+
+    const drivers = await this.prisma.orm.public.Driver
+      .where({ id: driverId })
+      .all();
+
+    if (drivers.length === 0) {
+      throw new NotFoundException("Ҳайдовчи топилмади.");
+    }
+
+    const driver = drivers[0];
+
+    if (!driver.isOnline) {
+      throw new BadRequestException(
+        "Офлайн ҳайдовчи буюртмани қабул қила олмайди.",
+      );
+    }
+
+    const driverType = driver.serviceType as DriverServiceType;
+    const rideType = ride.serviceType as ServiceType;
+
+    if (driverType !== "both" && driverType !== rideType) {
+      throw new BadRequestException(
+        "Ҳайдовчининг хизмат тури бу буюртмага мос эмас.",
+      );
+    }
+
+    return this.prisma.orm.public.Ride
+      .where({ id: rideId })
+      .update({
+        driverId,
+        status: "accepted",
+      });
+  }
+}

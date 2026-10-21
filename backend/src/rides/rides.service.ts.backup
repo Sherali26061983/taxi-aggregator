@@ -1,0 +1,73 @@
+import { BadRequestException, Injectable } from "@nestjs/common";
+import { PrismaService } from "../prisma/prisma.service.js";
+
+type ServiceType = "city" | "intercity";
+
+@Injectable()
+export class RidesService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async findAll(serviceType?: string) {
+    if (serviceType !== undefined) {
+      if (serviceType !== "city" && serviceType !== "intercity") {
+        throw new BadRequestException(
+          'Хизмат тури "city" ёки "intercity" бўлиши керак.',
+        );
+      }
+
+      return this.prisma.orm.public.Ride
+        .where({ serviceType })
+        .all();
+    }
+
+    return this.prisma.orm.public.Ride.all();
+  }
+
+  async create(
+    userId: number,
+    pickup: string,
+    destination: string,
+    serviceType: string = "city",
+  ) {
+    if (serviceType !== "city" && serviceType !== "intercity") {
+      throw new BadRequestException(
+        'Хизмат тури "city" ёки "intercity" бўлиши керак.',
+      );
+    }
+
+    if (
+      !Number.isInteger(userId) ||
+      userId <= 0 ||
+      !pickup?.trim() ||
+      !destination?.trim()
+    ) {
+      throw new BadRequestException(
+        "Фойдаланувчи ID рақами ва олиш ҳамда бориш манзиллари тўғри киритилиши керак.",
+      );
+    }
+
+    return this.prisma.orm.public.Ride.create({
+      userId,
+      pickup: pickup.trim(),
+      destination: destination.trim(),
+      serviceType: serviceType as ServiceType,
+    });
+  }
+
+  async completeRide(rideId: number) {
+    return this.prisma.orm.public.Ride
+      .where({ id: rideId })
+      .update({
+        status: "completed",
+      });
+  }
+
+  async assignDriver(rideId: number, driverId: number) {
+    return this.prisma.orm.public.Ride
+      .where({ id: rideId })
+      .update({
+        driverId,
+        status: "accepted",
+      });
+  }
+}
